@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>【管理员】报名汇总 · 玄玄堂</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #1a0a00;
+      color: #f0d8a8;
+      padding: 20px 16px 40px;
+      min-height: 100vh;
+    }
+    h1 { color: #ffd060; font-size: 1.3rem; text-align: center; margin-bottom: 6px; }
+    .sub { text-align: center; color: #a07040; font-size: 0.82rem; margin-bottom: 20px; }
+
+    .stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat-box {
+      flex: 1; min-width: 100px;
+      background: rgba(255,200,80,0.1);
+      border: 1px solid rgba(255,180,60,0.3);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-box .num { font-size: 2rem; color: #ffd060; font-weight: bold; }
+    .stat-box .lbl { font-size: 0.78rem; color: #a07040; margin-top: 2px; }
+
+    .actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .btn {
+      padding: 9px 16px;
+      border: none; border-radius: 8px;
+      font-size: 0.85rem; cursor: pointer; font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-export  { background: #c85000; color: #fff; }
+    .btn-clear   { background: #4a1a1a; color: #ff8080; border: 1px solid #ff404060; }
+    .btn-refresh { background: #1a3a1a; color: #80d080; border: 1px solid #40a04060; }
+
+    .search-bar {
+      width: 100%; padding: 9px 12px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,180,60,0.25);
+      border-radius: 8px;
+      color: #f0d8a8; font-size: 0.9rem;
+      margin-bottom: 14px;
+      outline: none;
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      background: rgba(255,180,60,0.15);
+      color: #ffc060;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,180,60,0.3);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+    tbody tr:hover { background: rgba(255,200,80,0.06); }
+    tbody td { padding: 10px 12px; color: #e0c898; vertical-align: top; }
+    .no-data { text-align: center; padding: 40px; color: #6a5040; }
+
+    #lock-screen {
+      position: fixed; inset: 0;
+      background: rgba(26,10,0,0.97);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    #lock-screen h2 { color: #ffd060; font-size: 1.2rem; margin-bottom: 20px; }
+    #lock-screen input {
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,180,60,0.3);
+      border-radius: 8px;
+      color: #f0d8a8; font-size: 1rem;
+      outline: none; width: 220px; text-align: center;
+      margin-bottom: 12px;
+    }
+    #lock-screen button {
+      padding: 10px 28px;
+      background: linear-gradient(135deg, #c85000, #ff8800);
+      border: none; border-radius: 8px;
+      color: #fff; font-size: 1rem; font-weight: bold;
+      cursor: pointer;
+    }
+    #lock-screen .hint { color: #806040; font-size: 0.8rem; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- 密码锁屏 -->
+<div id="lock-screen">
+  <h2>🔐 管理员验证</h2>
+  <input type="password" id="pwd-input" placeholder="请输入管理密码" onkeydown="if(event.key==='Enter')checkPwd()" />
+  <button onclick="checkPwd()">进入汇总</button>
+  <div class="hint">默认密码：xuanxuan2026</div>
+</div>
+
+<h1>📋 报名汇总 · 玄玄堂</h1>
+<div class="sub">三月初三祖师圣诞 · 供灯供奉报名汇总（仅管理员可见）</div>
+
+<div class="stats" id="stats-box">
+  <div class="stat-box"><div class="num" id="s-total">0</div><div class="lbl">总报名数</div></div>
+  <div class="stat-box"><div class="num" id="s-today">0</div><div class="lbl">今日新增</div></div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-refresh" onclick="loadData()">🔄 刷新</button>
+  <button class="btn btn-export" onclick="exportCSV()">📥 导出 CSV</button>
+  <button class="btn btn-clear" onclick="clearData()">🗑️ 清空数据</button>
+</div>
+
+<input class="search-bar" type="text" id="search-input" placeholder="🔍 搜索姓名 / 地址…" oninput="loadData()" />
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>提交时间</th>
+        <th>姓名</th>
+        <th>地址</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+</div>
+
+<script>
+  const STORAGE_KEY = 'xuanxuantang_signup_2026';
+  const ADMIN_PWD   = 'xuanxuan2026';  // 可在此修改管理密码
+
+  function checkPwd() {
+    const v = document.getElementById('pwd-input').value;
+    if (v === ADMIN_PWD) {
+      document.getElementById('lock-screen').style.display = 'none';
+      loadData();
+    } else {
+      alert('密码错误，请重试');
+    }
+  }
+
+  function getRecords() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { return []; }
+  }
+
+  function loadData() {
+    const q = (document.getElementById('search-input').value || '').toLowerCase();
+    let recs = getRecords();
+
+    document.getElementById('s-total').textContent = recs.length;
+    const todayStr = new Date().toLocaleDateString('zh-CN');
+    document.getElementById('s-today').textContent = recs.filter(r => r.submitTime && r.submitTime.startsWith(todayStr)).length;
+
+    if (q) {
+      recs = recs.filter(r =>
+        (r.name||'').toLowerCase().includes(q) ||
+        (r.address||'').toLowerCase().includes(q)
+      );
+    }
+
+    const tbody = document.getElementById('table-body');
+    if (recs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="no-data">暂无报名数据</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = recs.map((r, i) => `<tr>
+      <td>${i + 1}</td>
+      <td style="white-space:nowrap">${r.submitTime || ''}</td>
+      <td><b>${esc(r.name)}</b></td>
+      <td>${esc(r.address) || '—'}</td>
+    </tr>`).join('');
+  }
+
+  function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function exportCSV() {
+    const recs = getRecords();
+    if (!recs.length) { alert('暂无数据可导出'); return; }
+    const header = ['序号','提交时间','姓名','地址'];
+    const rows = recs.map((r, i) => [
+      i+1, r.submitTime, r.name, r.address
+    ].map(v => '"' + String(v||'').replace(/"/g,'""') + '"'));
+    const csv = '\uFEFF' + [header, ...rows].map(r => r.join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = '玄玄堂报名汇总.csv';
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  function clearData() {
+    if (confirm('确定清空所有报名数据？此操作不可恢复！')) {
+      localStorage.removeItem(STORAGE_KEY);
+      loadData();
+    }
+  }
+</script>
+
+</body>
+</html>
